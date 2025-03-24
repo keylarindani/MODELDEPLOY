@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,97 +5,105 @@ import pickle
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Load dataset
-raw_data = pd.read_csv('ObesityDataSet_raw_and_data_sinthetic.csv')
+# Memuat dataset
+dataset = pd.read_csv('ObesityDataSet_raw_and_data_sinthetic.csv')
 
-# Load model and artifacts
+# Memuat model dan alat bantu lainnya
 with open('model.pkl', 'rb') as f:
-    model = pickle.load(f)
+    classifier = pickle.load(f)
 with open('encoder.pkl', 'rb') as f:
-    encoders = pickle.load(f)
+    categorical_encoders = pickle.load(f)
 with open('scaler.pkl', 'rb') as f:
-    scaler = pickle.load(f)
+    normalizer = pickle.load(f)
 with open('feature_columns.pkl', 'rb') as f:
-    feature_columns = pickle.load(f)
+    selected_features = pickle.load(f)
 with open('target_encoder.pkl', 'rb') as f:
-    target_encoder = pickle.load(f)
+    label_encoder = pickle.load(f)
 
-# Streamlit UI
-st.title('Obesity Prediction App')
-st.info('Predict your obesity level based on lifestyle and physical attributes.')
+# **Antarmuka Streamlit**
+st.title('Aplikasi Prediksi Obesitas')
+st.info('Prediksi tingkat obesitas berdasarkan gaya hidup dan karakteristik fisik.')
 
-# Show Raw Data
-with st.expander('Show Raw Data'):
-    st.dataframe(raw_data, use_container_width=True)
+# **Menampilkan Data Mentah**
+with st.expander('Lihat Data Mentah'):
+    st.dataframe(dataset, use_container_width=True)
 
-# Data Visualization
-with st.expander('Data Visualization'):
+# **Visualisasi Data**
+with st.expander('Visualisasi Data'):
     fig, ax = plt.subplots(figsize=(8, 5))
-    sns.scatterplot(data=raw_data, x='Height', y='Weight', hue='NObeyesdad', palette='Set2')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
+    sns.scatterplot(data=dataset, x='Height', y='Weight', hue='NObeyesdad', palette='Set2')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     st.pyplot(fig)
 
-# User Inputs
-st.subheader('Input Your Data')
-gender = st.selectbox('Gender', ['Male', 'Female'])
-age = st.slider('Age', 10, 100, 25)
-height = st.number_input('Height (m)', min_value=1.0, max_value=2.5, value=1.7)
-weight = st.number_input('Weight (kg)', min_value=30.0, max_value=200.0, value=70.0)
-family_history = st.selectbox('Family History with Overweight', ['yes', 'no'])
-favc = st.selectbox('Frequent High Calorie Food Consumption', ['yes', 'no'])
-fcvc = st.slider('Vegetable Consumption Frequency (1-3)', 1, 3, 2)
-ncp = st.slider('Number of Main Meals', 1, 4, 3)
-caec = st.selectbox('Food between Meals', ['no', 'Sometimes', 'Frequently', 'Always'])
-smoke = st.selectbox('Do you Smoke?', ['yes', 'no'])
-ch2o = st.slider('Water Consumption (1-3)', 1, 3, 2)
-scc = st.selectbox('Do you Monitor your Calories?', ['yes', 'no'])
-faf = st.slider('Physical Activity Frequency (0-3)', 0, 3, 1)
-tue = st.slider('Time Using Technology (0-3)', 0, 3, 1)
-calc = st.selectbox('Alcohol Consumption', ['no', 'Sometimes', 'Frequently', 'Always'])
-mtrans = st.selectbox('Transportation Mode', ['Automobile', 'Bike', 'Motorbike', 'Public Transportation', 'Walking'])
+# **Input Data Pengguna**
+st.subheader('Masukkan Data Anda')
+gender = st.selectbox('Jenis Kelamin', ['Male', 'Female'])
+age = st.slider('Usia', 10, 100, 25)
+height = st.number_input('Tinggi (m)', min_value=1.0, max_value=2.5, value=1.7)
+weight = st.number_input('Berat (kg)', min_value=30.0, max_value=200.0, value=70.0)
+family_history = st.selectbox('Riwayat Keluarga dengan Obesitas', ['yes', 'no'])
+favc = st.selectbox('Sering Konsumsi Makanan Tinggi Kalori', ['yes', 'no'])
+fcvc = st.slider('Frekuensi Konsumsi Sayuran (1-3)', 1, 3, 2)
+ncp = st.slider('Jumlah Makan Utama per Hari', 1, 4, 3)
+caec = st.selectbox('Konsumsi Makanan di Antara Waktu Makan', ['no', 'Sometimes', 'Frequently', 'Always'])
+smoke = st.selectbox('Apakah Anda Merokok?', ['yes', 'no'])
+ch2o = st.slider('Konsumsi Air (1-3)', 1, 3, 2)
+scc = st.selectbox('Apakah Anda Mengontrol Asupan Kalori?', ['yes', 'no'])
+faf = st.slider('Frekuensi Aktivitas Fisik (0-3)', 0, 3, 1)
+tue = st.slider('Waktu Penggunaan Teknologi (0-3)', 0, 3, 1)
+calc = st.selectbox('Konsumsi Alkohol', ['no', 'Sometimes', 'Frequently', 'Always'])
+mtrans = st.selectbox('Moda Transportasi', ['Automobile', 'Bike', 'Motorbike', 'Public Transportation', 'Walking'])
 
-user_input = pd.DataFrame([{
+# Menyusun input pengguna dalam bentuk DataFrame
+user_data = pd.DataFrame([{
     'Gender': gender, 'Age': age, 'Height': height, 'Weight': weight,
     'family_history_with_overweight': family_history, 'FAVC': favc, 'FCVC': fcvc,
     'NCP': ncp, 'CAEC': caec, 'SMOKE': smoke, 'CH2O': ch2o, 'SCC': scc,
     'FAF': faf, 'TUE': tue, 'CALC': calc, 'MTRANS': mtrans
 }])
 
-st.subheader('Your Input Data')
-st.dataframe(user_input, use_container_width=True)
+st.subheader('Data yang Anda Masukkan')
+st.dataframe(user_data, use_container_width=True)
 
-def prepare_user_input(df):
-    # Encode categorical features
-    for col, le in encoders.items():
-        df[col] = le.transform(df[col])
+# **Fungsi untuk Memproses Input Pengguna**
+def process_input(df):
+    # Mengonversi variabel kategori menggunakan encoder yang sudah dilatih
+    for col, encoder in categorical_encoders.items():
+        df[col] = encoder.transform(df[col])
 
-    # Ensure feature order and fill missing
-    for col in feature_columns:
+    # Memastikan semua fitur tersedia dalam urutan yang benar
+    for col in selected_features:
         if col not in df.columns:
-            df[col] = 0
-    df = df[feature_columns]
+            df[col] = 0  # Mengisi fitur yang tidak ada dengan nilai nol
+    df = df[selected_features]
 
-    # Scale
-    df_scaled = scaler.transform(df)
-    return df_scaled
+    # Melakukan normalisasi
+    df_normalized = normalizer.transform(df)
+    return df_normalized
 
-if st.button('Predict Obesity Level'):
+# **Prediksi Obesitas**
+if st.button('Prediksi Tingkat Obesitas'):
     try:
-        X_ready = prepare_user_input(user_input.copy())
-        prediction = model.predict(X_ready)
-        prediction_label = target_encoder.inverse_transform(prediction)
-        proba = model.predict_proba(X_ready)
+        # Memproses data pengguna sebelum dimasukkan ke model
+        prepared_input = process_input(user_data.copy())
 
-        st.success(f'Predicted Obesity Level: {prediction_label[0]}')
-        st.info(f'Prediction Probability: {np.max(proba) * 100:.2f}%')
+        # Melakukan prediksi
+        prediction = classifier.predict(prepared_input)
+        predicted_label = label_encoder.inverse_transform(prediction)
+        prediction_proba = classifier.predict_proba(prepared_input)
 
-        # Show all class probabilities in a table
-        st.subheader('Prediction Probabilities for All Classes')
-        proba_df = pd.DataFrame({
-            'Obesity Level': target_encoder.inverse_transform(np.arange(len(proba[0]))),
-            'Probability (%)': (proba[0] * 100).round(2)
-        }).sort_values(by='Probability (%)', ascending=False).reset_index(drop=True)
-        st.dataframe(proba_df, use_container_width=True)
+        # Menampilkan hasil prediksi
+        st.success(f'Tingkat Obesitas yang Diprediksi: {predicted_label[0]}')
+        st.info(f'Kepercayaan Model: {np.max(prediction_proba) * 100:.2f}%')
+
+        # **Menampilkan Semua Probabilitas Kelas**
+        st.subheader('Probabilitas untuk Setiap Kelas')
+        probability_df = pd.DataFrame({
+            'Tingkat Obesitas': label_encoder.inverse_transform(np.arange(len(prediction_proba[0]))),
+            'Probabilitas (%)': (prediction_proba[0] * 100).round(2)
+        }).sort_values(by='Probabilitas (%)', ascending=False).reset_index(drop=True)
+        
+        st.dataframe(probability_df, use_container_width=True)
 
     except Exception as e:
-        st.error(f'Prediction failed: {e}')
+        st.error(f'Gagal melakukan prediksi: {e}')
